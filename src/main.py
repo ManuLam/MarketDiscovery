@@ -1,7 +1,7 @@
+import asyncio
 from random import randint
 
 import cv2
-import win32gui
 from win32gui import FindWindow, GetWindowRect
 import pyautogui
 from PIL import Image, ImageChops
@@ -9,12 +9,15 @@ import time
 import winsound
 import win32api, win32con
 
-from analyze_images import image_compare, cv2_show_image, image_compute_numbers
+from analyze_images import image_compute_numbers
 from human_click import move_mouse
 
-path = "images\\{0}." + time.strftime("%Y%m%d-%H%M%S") + ".png"
-trophy_path = "trophy\\{0}." + time.strftime("%Y%m%d-%H%M%S") + ".png"
-found_path = "found\\{0}." + time.strftime("%Y%m%d-%H%M%S") + ".png"
+from src.discord_hook import ping_discord
+
+main_path = "C:\\Users\\Manu\\PycharmProjects\\ItemDiscovery\\"
+path = main_path + "images\\{0}." + time.strftime("%Y%m%d-%H%M%S") + ".png"
+trophy_path = main_path + "trophy\\{0}." + time.strftime("%Y%m%d-%H%M%S") + ".png"
+found_path = main_path + "found\\{0}." + time.strftime("%Y%m%d-%H%M%S") + ".png"
 game_title = "LOST ARK (64-bit, DX11) v.2.0.2.1"
 
 window_handle = FindWindow(None, game_title)
@@ -45,10 +48,8 @@ market_buy_now_price_col_width_shift = 1665
 market_buy_now_price_col_y_shift = market_buy_now_price_col_height - y1
 market_buy_now_price_col_coords = (market_buy_now_price_col_x_shift, y1 + market_buy_now_price_col_height_add_top, market_buy_now_price_col_width_shift, market_buy_now_price_col_y_shift)
 
-def screen_capture(coords, title, trophy=False, display=False, save=False):
-    if display:
-        print(coords)
 
+def screen_capture(coords, title, trophy=False, save=False):
     save_location = path.format(title)
 
     if trophy:
@@ -68,10 +69,10 @@ def crop_save(coords, save_location, save=False):
     return im
 
 
-def image_save(save_location, replace, path):
-    im = Image.open(save_location)
-    save_location = save_location.replace("fresh", replace)
-    im.save(path + "\\" + save_location)
+def image_save(image_name, image_location, save_folder, replace):
+    im = Image.open(image_location + image_name)
+    image_name = image_name.replace("cache", replace)
+    im.save(image_location + save_folder + "\\" + image_name)
 
 
 def click(x, y):
@@ -80,160 +81,201 @@ def click(x, y):
     win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, x, y, 0, 0)
 
 
-from discord import Webhook, RequestsWebhookAdapter
-import discord
-
-
-def ping_discord(price, threshold):
-    with open(file='C:\\Users\\Manu\\PycharmProjects\\ItemDiscovery\\AuctionBuyCol.fresh.png', mode='rb') as f:
-        my_file = discord.File(f)
-
-    webhook = Webhook.from_url("https://discord.com/api/webhooks/946189381482463302/9svEN_y6TeHErHyhh52rOzro-M-cEsRuTT8LovcR8mTdaC1i6tjBBTH-hlyKgAdPlr7Q", adapter=RequestsWebhookAdapter())
-    webhook.send(username="SHADY MERCHANT", avatar_url="https://i.imgur.com/a/jIokIO2", file=my_file, content="<@&946199864767836190> LOWEST PRICE FOUND @ {0} | THRESHOLD @ {1}".format(price, threshold))
-
-
 def ping_sound():
     duration = 200  # milliseconds
     freq = 440  # Hz
     winsound.Beep(freq, duration)
 
 
+def randomize_sleep(x, y):
+    sleep_time = randint(x, y)
+    print("Sleeping for {0} seconds!".format(sleep_time))
+    time.sleep(sleep_time)
+
+
+searchbox_x1, searchbox_y1, searchbox_x2, searchbox_y2 = 1512, 138, 1705, 151
+
+
 def randomize_searchbox_location():
-    return randint(1512, 1705), randint(138, 151)
+    return randint(searchbox_x1, searchbox_x2), randint(searchbox_y1, searchbox_y2)
 
 
-def main():
-    i = 0
+def within_searchbox():
+    x, y = pyautogui.position()
+    return (searchbox_x2 >= x >= searchbox_x1) and (searchbox_y2 >= y >= searchbox_y1)
 
-    coords = auction_buy_now_price_col_coords
-    # coords = market_buy_now_price_col_coords
+
+def move_and_leftclick(x, y, speed=.144):
+    move_mouse(x, y, speed)
+    pyautogui.leftClick()
+
+
+def moveToTier(tier):
+    button_helper = AuctionButtons()
+    tier_coords = {"T2": button_helper.T2_coords(), "T3": button_helper.T3_coords()}
+    time.sleep(.11)
+    move_and_leftclick(*button_helper.search_filter_button_coords(), speed=.088)
+    time.sleep(.11)
+    move_and_leftclick(*tier_coords[tier], speed=.088)
+    time.sleep(.11)
+    move_and_leftclick(*button_helper.accept_button_coords(), speed=.088)
+    time.sleep(.11)
+    move_and_leftclick(*button_helper.search_button_coords(), speed=.088)
+    time.sleep(.11)
+
+
+AUCTION_BUY_COL = "AuctionBuyCol"
+AUCTION_GUI = "AuctionGUI"
+
+
+CACHE_IMAGE_NAME = "{0}.cache.png".format(AUCTION_BUY_COL)
+AUCTION_GUI_IMAGE_NAME = "{0}.cache.png".format(AUCTION_GUI)
+
+CACHE_IMAGE = main_path + CACHE_IMAGE_NAME
+AUCTION_GUI_IMAGE = main_path + AUCTION_GUI_IMAGE_NAME
+
+
+import time
+
+from AuctionButtons import AuctionButtons
+
+def auto_buy():
+    buttons = AuctionButtons()
+    move_and_leftclick(*buttons.item_one(), speed=.077)
+    time.sleep(.05)
+    move_and_leftclick(*buttons.bid_buy(), speed=.077)
+    time.sleep(.05)
+    move_and_leftclick(*buttons.confirm_buy(), speed=.077)
+    time.sleep(1)
+    pyautogui.press("enter")
+    time.sleep(1)
+
+
+def find_low_price(prices, threshold, diff, discord_image, PING_NOTIFICATION=True):
+    try:
+        # todo lets compare before...
+        if len(prices) > 0 and threshold >= prices[0]:
+            print("Found {0}: ".format(threshold), prices)
+
+            if PING_NOTIFICATION and diff.getbbox():
+                ping_discord(prices[0], discord_image, threshold)
+
+            auto_buy()
+            # ping_sound()
+
+            # image_save(discord_image, main_path, "found", time.strftime("%Y%m%d-%H%M%S"))
+            return True
+
+        print("Not found: ", prices)
+    except Exception as e:
+        print("ERROR: ", prices, e)
+
+
+def autoMoveTier(tier):
+    if tier == "T2": moveToTier("T2")
+    if tier == "T3": moveToTier("T3")
+
+
+# from pynput import keyboard
+#
+# def listener():
+#     # The event listener will be running in this block
+#     with keyboard.Events() as events:
+#         for event in events:
+#             if event.key == keyboard.Key.esc:
+#                 exit()
+#
+# qq = asyncio.Queue()
+#
+#
+# loop = asyncio.get_event_loop()
+# loop.run_until_complete(listener())
+
+
+from src.GemStorage import T2
+from src.GemStorage import T3
+
+def main(gem_set):
+    print("System started!")
+    rotate_speed = (0, 1)
+
+    if len(gem_set) == 1:
+        rotate_speed = (2, 3)
+
+    # gem_set =  t3gems
+
+    iterations_map = {T2.Level6Gem: 1, T2.Level7Gem: 1, T2.Level5Gem: 1, T3.Level2Gem: 1, T3.Level3Gem: 1, T3.Level4Gem: 1, T3.Level5Gem: 1}
+    coords = {"Auction": auction_buy_now_price_col_coords, "Market": market_buy_now_price_col_coords}
+
+    if len(gem_set) > 0:
+        prev_tier = gem_set[0]().get_tier()
+        moveToTier(prev_tier)
+    else:
+        print("empty set!")
+        return
 
     while True:
-        searchbox_x, searchbox_y = randomize_searchbox_location()
+        start_remove_iteration = True
+        for g in gem_set:
+            iterations = 0
 
-        thresholdLv3 = 355
-        thresholdLv4 = 800
-        thresholdLv6 = 233
-        thresholdLv7 = 633
-        thresholdBook = 250
-        threshold = thresholdLv6
+            gem = g()
+            if prev_tier != gem.get_tier():
+                autoMoveTier(gem.get_tier())
 
-        runLv7 = True
-        runLv4 = False
+            prev_tier = gem.get_tier()
 
+            if not within_searchbox():
+                move_and_leftclick(*randomize_searchbox_location())
 
-        if i % 2 == 0:
-            move_mouse(searchbox_x, searchbox_y)
-            pyautogui.leftClick()
+            threshold = gem.threshold
 
+            # start with replacing the search field
+            for command in gem.get_commands():
+                time.sleep(.22)
+                pyautogui.press(command)
+                time.sleep(.22)
 
-        i += 1
-        time.sleep(.33)
+            if g not in iterations_map:
+                iter_range = 1
+            else:
+                iter_range = iterations_map[g]
 
-        if runLv7 and i % 4 == 0:
-            move_mouse(searchbox_x, searchbox_y)
-            pyautogui.leftClick()
+            for step in range(iter_range):
+                # TODO, simple for now
+                if (iterations != 0 and iterations % 2 == 0 and not within_searchbox()):
+                    move_and_leftclick(*randomize_searchbox_location())
 
-            #4th alteration, check level 7
-            threshold = thresholdLv7
-            pyautogui.press("backspace")
-            pyautogui.press("7")
+                if within_searchbox():
+                    time.sleep(.22)
+                    pyautogui.press("enter")
+                    time.sleep(1)
 
-        if runLv4 and i % 4 == 0:
-            move_mouse(searchbox_x, searchbox_y)
-            pyautogui.leftClick()
+                auction_buy_col_save = screen_capture(coords[gem.get_selling_type()], AUCTION_BUY_COL, trophy=False, save=False)
+                discord_image = screen_capture(auction_gui_coords, AUCTION_GUI, trophy=False, save=False)
 
-            #3rd alteration, check level 3
-            threshold = thresholdLv4
-            pyautogui.press("backspace")
-            pyautogui.press("4")
+                diff = ImageChops.difference(auction_buy_col_save[0], Image.open(CACHE_IMAGE))
+                auction_buy_col_save[0].save(CACHE_IMAGE)
 
-        time.sleep(.6)
+                prices = list(map(int, image_compute_numbers(CACHE_IMAGE)))
+                found = find_low_price(prices, threshold, diff, discord_image[1])
 
-        if pyautogui.position() == (searchbox_x, searchbox_y):
-            pyautogui.press("enter")
+                cv2.waitKey(3)
 
-            time.sleep(1.2)
+                if found:
+                    randomize_sleep(4, 6)
+                else:
+                    randomize_sleep(*rotate_speed)
 
-        SAVE = False
-        doShow = False
-        PING_NOTIFICATION = True
+                iterations += 1
 
-        AUCTION_GUI = "AuctionGUI"
-        AUCTION_BUY_COL = "AuctionBuyCol"
-
-        #auction_gui_save = screen_capture(auction_gui_coords, AUCTION_GUI, trophy=SAVE)
-        auction_buy_col_save = screen_capture(coords, AUCTION_BUY_COL, trophy=SAVE, save=False)
-
-        # Computer vision check these coords to see difference in price
-        # try:
-        #     show_compare = image_compare("{0}.fresh.png".format(AUCTION_BUY_COL), auction_buy_col_save[1])
-        # except Exception as e:
-        #     doShow = False
-        #     print(e)
-        #
-        diff = ImageChops.difference(auction_buy_col_save[0], Image.open("{0}.fresh.png".format(AUCTION_BUY_COL)))
-        auction_buy_col_save[0].save("{0}.fresh.png".format(AUCTION_BUY_COL))
-        #
-        # if doShow:
-        #     cv2_show_image(show_compare)
-        #     cv2.waitKey(0)
-
-
-        ar = list(image_compute_numbers("{0}.fresh.png".format(AUCTION_BUY_COL)))
-
-        def find_low_price(diff):
-            try:
-                if len(ar) > 0 and int(ar[0]) <= threshold:
-                    # print("Found {0}".format(element))
-                    print("FOUND {0}: ".format(threshold), ar)
-
-                    if diff.getbbox():
-                        ping_discord(ar[0], threshold)
-
-                    # ping_sound()
-
-                    image_save("{0}.fresh.png".format(AUCTION_BUY_COL), time.strftime("%Y%m%d-%H%M%S"), "found")
-                    return
-
-                if len(ar) >= 2 and int(ar[0]) > int(ar[1]):
-                    # print("Found {0}".format(element))
-                    print("FOUND {0}: ".format(threshold), ar)
-
-                    if diff.getbbox():
-                        ping_discord(ar[0], threshold)
-
-                    # ping_sound()
-
-                    image_save("{0}.fresh.png".format(AUCTION_BUY_COL), time.strftime("%Y%m%d-%H%M%S"), "found")
-                    return
-
-
-                print("show: ", ar)
-            except Exception as e:
-                print("ERROR: ", ar, e)
-
-
-        find_low_price(diff)
-
-        cv2.waitKey(3)
-
-        if runLv7 and i % 4 == 0:
-            pyautogui.press("backspace")
-            pyautogui.press("6")
-
-
-        if runLv4 and i % 4 == 0:
-            pyautogui.press("backspace")
-            pyautogui.press("3")
-
-        sleep_time = randint(5, 7)
-
-        print("Sleeping for {0} seconds", sleep_time)
-        time.sleep(sleep_time)
-
+        randomize_sleep(2, 3)
 
 
 if __name__ == "__main__":
-    main()
+    t2gems = [T2.Level6Gem, T2.Level7Gem]
+    t3gems = [T3.Level2Gem, T3.Level3Gem, T3.Level4Gem, T3.Level5Gem]
+    gem_set = t3gems
+
+    main(gem_set)
     # print(pyautogui.position())

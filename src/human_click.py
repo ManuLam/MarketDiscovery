@@ -3,14 +3,14 @@ import bezier
 import numpy as np
 
 
-def move_mouse(x, y):
+def move_mouse(x, y, speed):
     end = x, y
     # Disable pyautogui pauses (from DJV's answer)
     pyautogui.MINIMUM_DURATION = 0
     pyautogui.MINIMUM_SLEEP = 0
     pyautogui.PAUSE = 0
 
-    print("Moving to searchbox.")
+    print("Moving to location.")
 
     # For this example we'll use four control points, including start and end coordinates
     start = pyautogui.position()
@@ -31,7 +31,7 @@ def move_mouse(x, y):
     # curve = bezier.Curve.from_nodes(points)
 
     curve_steps = 50  # How many points the curve should be split into. Each is a separate pyautogui.moveTo() execution
-    delay = .2/curve_steps  # Time between movements. 1/curve_steps = 1 second for entire curve
+    delay = speed/curve_steps  # Time between movements. 1/curve_steps = 1 second for entire curve
 
     # Move the mouse
     for i in range(1, curve_steps+1):

@@ -61,12 +61,24 @@ def image_compare(before, after):
 
     return cv2_save_show_image(before, after)
 
+
+def compare_cv2_images(doShow=False):
+    # Computer vision check these coords to see difference in price
+    try:
+        show_compare = image_compare("{0}.fresh.png".format(AUCTION_BUY_COL), auction_buy_col_save[1])
+    except Exception as e:
+        doShow = False
+        print(e)
+
+    if doShow:
+        cv2_show_image(show_compare)
+        cv2.waitKey(0)
+
+
 def image_compute_numbers(image, show=True):
     img = Image.open(image)
     array = image_to_string(img, config='-c tessedit_char_whitelist=01234567890 --psm 6').replace(" ", "").split("\n")
     array = filter(lambda item: item, array)
-
-
 
     if show:
         cv2_show_image(cv2.imread(image))
